@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package series
+package metric
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ func ShouldSanitizeFieldName(fieldName []byte) bool {
 func SanitizeFieldName(fieldName []byte) []byte {
 	switch {
 	case bytes.HasPrefix(fieldName, []byte("Histogram")):
-		var dst = make([]byte, len(fieldName)+1)
+		dst := make([]byte, len(fieldName)+1)
 		dst[0] = byte('_')
 		copy(dst[1:], fieldName)
 		return dst

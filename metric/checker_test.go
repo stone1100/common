@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package series
+package metric
 
 import (
 	"bytes"
@@ -99,7 +99,7 @@ func Benchmark_FlatMetric_Unmarshal10KeyValues(b *testing.B) {
 func Benchmark_Marshal_Proto(b *testing.B) {
 	m := protoMetricsV1.Metric{Name: "hello", Namespace: "default-ns", Timestamp: fasttime.UnixMilliseconds()}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
 			Name: "counter" + strconv.Itoa(i), Type: protoMetricsV1.SimpleFieldType_LAST, Value: float64(i),
 		})
@@ -116,7 +116,7 @@ func Benchmark_Marshal_Proto(b *testing.B) {
 func Benchmark_Unmarshal_Proto_10Fields(b *testing.B) {
 	m := protoMetricsV1.Metric{Name: "hello", Namespace: "default-ns", Timestamp: fasttime.UnixMilliseconds()}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
 			Name: "counter" + strconv.Itoa(i), Type: protoMetricsV1.SimpleFieldType_LAST, Value: float64(i),
 		})

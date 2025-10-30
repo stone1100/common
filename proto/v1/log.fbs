@@ -1,0 +1,14 @@
+namespace flatLogV1;
+
+table Field {
+  name: string;
+	value: string;
+}
+
+table Log {
+  timestamp: int64; // in milliseconds
+	message: string;
+  fields: [Field];
+}
+
+root_type Log;

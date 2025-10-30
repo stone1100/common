@@ -28,6 +28,7 @@ function gen() {
 
 # brew install flatbuffers
 flatc --go -o ./proto/gen/v1 ./proto/v1/metrics.fbs
+flatc --go -o ./proto/gen/v1 ./proto/v1/log.fbs
 
 # for dir in v1 opentelemetry-v1
 for dir in v1; do
