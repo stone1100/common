@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package series
+package metric
 
 import (
 	"math"
@@ -32,7 +32,7 @@ import (
 
 func Test_NewRowBuilder(t *testing.T) {
 	var lastData []byte
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		rb, releaseFunc := NewRowBuilder()
 
 		assert.NoError(t, rb.AddTag([]byte("a"), []byte("b")))
@@ -52,7 +52,7 @@ func Test_NewRowBuilder(t *testing.T) {
 func Test_RowBuilder(t *testing.T) {
 	rb, releaseFunc := NewRowBuilder()
 	defer releaseFunc(rb)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		assert.NoError(t, rb.AddTag([]byte("a"), []byte("b")))
 		assert.NoError(t, rb.AddSimpleField([]byte("f1"), flatMetricsV1.SimpleFieldTypeDeltaSum, 1))
 		if i%2 == 0 {
@@ -218,7 +218,7 @@ func buildFlatMetric(builder *flatbuffers.Builder) {
 		kvs        [10]flatbuffers.UOffsetT
 		fields     [10]flatbuffers.UOffsetT
 	)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		keys[i] = builder.CreateString("key" + strconv.Itoa(i))
 		values[i] = builder.CreateString("value" + strconv.Itoa(i))
 		fieldNames[i] = builder.CreateString("counter" + strconv.Itoa(i))
@@ -231,7 +231,7 @@ func buildFlatMetric(builder *flatbuffers.Builder) {
 	}
 
 	// serialize field names
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		flatMetricsV1.SimpleFieldStart(builder)
 		flatMetricsV1.SimpleFieldAddName(builder, fieldNames[i])
 		switch i {

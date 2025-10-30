@@ -3,7 +3,7 @@ syntax = "proto3";
 package protoMetricsV1;
 
 message MetricList {
-    repeated Metric metrics = 2;
+  repeated Metric metrics = 2;
 }
 
 // Defines a Metric which has one or more time series.  The following is a
@@ -50,75 +50,75 @@ message MetricList {
 //  +-----+----------+---------+----------+
 
 message Metric {
-    string namespace = 1;
-    string name = 2;
-    int64 timestamp = 3;
-    repeated KeyValue tags = 4;
-    // xxhash.Sum64String(tags), broker side generate before write wal
-    uint64 tags_hash = 5;
-    repeated SimpleField simple_fields = 6;
-    CompoundField compound_field = 7;
-    repeated Exemplar exemplars = 8;
+  string namespace = 1;
+  string name = 2;
+  int64 timestamp = 3;
+  repeated KeyValue tags = 4;
+  // xxhash.Sum64String(tags), broker side generate before write wal
+  uint64 tags_hash = 5;
+  repeated SimpleField simple_fields = 6;
+  CompoundField compound_field = 7;
+  repeated Exemplar exemplars = 8;
 }
 
 enum SimpleFieldType {
-    SIMPLE_UNSPECIFIED = 0;
-    LAST = 1;
-    DELTA_SUM = 2;
-    Min = 3;
-    Max = 4;
-    FIRST = 5;
+  SIMPLE_UNSPECIFIED = 0;
+  LAST = 1;
+  DELTA_SUM = 2;
+  Min = 3;
+  Max = 4;
+  FIRST = 5;
 }
 
 message SimpleField {
-    string name = 1;
-    SimpleFieldType type = 2;
-    double value = 4;
+  string name = 1;
+  SimpleFieldType type = 2;
+  double value = 4;
 }
 
 // CompoundData is compound data used for histogram field.
 message CompoundField {
-    double min = 2;
-    double max = 3;
-    double sum = 4;
-    double count = 5;
-    // same as open-telemetry metrics definition
-    // explicit_bounds specifies buckets with explicitly defined bounds for values.
-    //
-    // The boundaries for bucket at index i are:
-    //
-    // (-infinity, explicit_bounds[i]] for i == 0
-    // (explicit_bounds[i-1], explicit_bounds[i]] for 0 < i < size(explicit_bounds)
-    // (explicit_bounds[i-1], +infinity) for i == size(explicit_bounds)
-    //
-    // The values in the explicit_bounds array must be strictly increasing.
-    //
-    // Histogram buckets are inclusive of their upper boundary, except the last
-    // bucket where the boundary is at infinity. This format is intentionally
-    // compatible with the OpenMetrics histogram definition.
-    repeated double explicit_bounds = 6;
-    repeated double values = 7;
+  double min = 2;
+  double max = 3;
+  double sum = 4;
+  double count = 5;
+  // same as open-telemetry metrics definition
+  // explicit_bounds specifies buckets with explicitly defined bounds for values.
+  //
+  // The boundaries for bucket at index i are:
+  //
+  // (-infinity, explicit_bounds[i]] for i == 0
+  // (explicit_bounds[i-1], explicit_bounds[i]] for 0 < i < size(explicit_bounds)
+  // (explicit_bounds[i-1], +infinity) for i == size(explicit_bounds)
+  //
+  // The values in the explicit_bounds array must be strictly increasing.
+  //
+  // Histogram buckets are inclusive of their upper boundary, except the last
+  // bucket where the boundary is at infinity. This format is intentionally
+  // compatible with the OpenMetrics histogram definition.
+  repeated double explicit_bounds = 6;
+  repeated double values = 7;
 }
 
 // KeyValue is a key-value pair that is used to store tag/label attributes
 message KeyValue {
-    string key = 1;
-    string value = 2;
+  string key = 1;
+  string value = 2;
 }
 
 // A representation of an exemplar, which is a sample input compound-field.
 // Exemplars in LindDB wont' hold any information about the environment
 // it is used to record span and trace ID for a specify series.
 message Exemplar {
-	// Exemplar Name
-    string name = 1;
+  // Exemplar Name
+  string name = 1;
 
-    // Span ID of the exemplar trace.
-    string span_id = 2;
+  // Span ID of the exemplar trace.
+  string span_id = 2;
 
-    // Trace ID of the exemplar trace.
-    string trace_id = 3;
+  // Trace ID of the exemplar trace.
+  string trace_id = 3;
 
-    // Duration of the exemplar span.
-    int64 duration = 4;
+  // Duration of the exemplar span.
+  int64 duration = 4;
 }

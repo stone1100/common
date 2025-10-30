@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package series
+package metric
 
 import (
 	"bytes"
@@ -27,28 +27,10 @@ import (
 	"github.com/cespare/xxhash/v2"
 	flatbuffers "github.com/google/flatbuffers/go"
 
+	"github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 )
-
-type rowKV struct {
-	key   []byte
-	value []byte
-}
-
-// rowKVs sorts key values, then computes the hash
-type rowKVs struct {
-	kvs     []rowKV
-	kvCount int
-}
-
-func (items rowKVs) Len() int { return items.kvCount }
-
-func (items rowKVs) Swap(i, j int) { items.kvs[i], items.kvs[j] = items.kvs[j], items.kvs[i] }
-
-func (items rowKVs) Less(i, j int) bool {
-	return bytes.Compare(items.kvs[i].key, items.kvs[j].key) < 0
-}
 
 type rowExemplar struct {
 	name     []byte
@@ -70,7 +52,7 @@ type RowBuilder struct {
 	nameSpace  []byte
 	timestamp  int64
 
-	rowKVs  rowKVs
+	rowKVs  models.KVs
 	hashBuf bytes.Buffer // concat sorted kvs
 
 	simpleFields     []rowSimpleField
@@ -128,16 +110,16 @@ func (rb *RowBuilder) AddTag(key, value []byte) error {
 	if len(key) == 0 || len(value) == 0 {
 		return fmt.Errorf("tag[%s: %s] is empty", string(key), string(value))
 	}
-	rb.rowKVs.kvCount++
+	rb.rowKVs.Count++
 
-	if rb.rowKVs.kvCount > len(rb.rowKVs.kvs) {
-		rb.rowKVs.kvs = append(rb.rowKVs.kvs, rowKV{})
+	if rb.rowKVs.Count > len(rb.rowKVs.Values) {
+		rb.rowKVs.Values = append(rb.rowKVs.Values, models.KV{})
 	}
-	kvIdx := rb.rowKVs.kvCount - 1
+	kvIdx := rb.rowKVs.Count - 1
 	// copy key
-	rb.rowKVs.kvs[kvIdx].key = append(rb.rowKVs.kvs[kvIdx].key[:0], key...)
+	rb.rowKVs.Values[kvIdx].Key = append(rb.rowKVs.Values[kvIdx].Key[:0], key...)
 	// copy value
-	rb.rowKVs.kvs[kvIdx].value = append(rb.rowKVs.kvs[kvIdx].value[:0], value...)
+	rb.rowKVs.Values[kvIdx].Value = append(rb.rowKVs.Values[kvIdx].Value[:0], value...)
 	return nil
 }
 
@@ -244,14 +226,14 @@ func (rb *RowBuilder) AddCompoundFieldData(values, bounds []float64) error {
 	return nil
 }
 
-func (rb *RowBuilder) AddCompoundFieldMMSC(min, max, sum, count float64) error {
-	rb.compoundFieldMin = min
-	rb.compoundFieldMax = max
-	rb.compoundFieldSum = sum
-	rb.compoundFieldCount = count
-	if !(min >= 0 && max >= 0 && sum >= 0 && count >= 0) {
+func (rb *RowBuilder) AddCompoundFieldMMSC(minVal, maxVal, sumVal, countVal float64) error {
+	rb.compoundFieldMin = minVal
+	rb.compoundFieldMax = maxVal
+	rb.compoundFieldSum = sumVal
+	rb.compoundFieldCount = countVal
+	if !(minVal >= 0 && maxVal >= 0 && sumVal >= 0 && countVal >= 0) {
 		return fmt.Errorf("min: %f, max: %f, sum: %f, count: %f should >= 0",
-			min, max, sum, count)
+			minVal, maxVal, sumVal, countVal)
 	}
 	return nil
 }
@@ -278,7 +260,7 @@ func (rb *RowBuilder) Reset() {
 	rb.timestamp = 0
 
 	// reset kvs context
-	rb.rowKVs.kvCount = 0
+	rb.rowKVs.Count = 0
 
 	// reset simple fields context
 	rb.simpleFieldCount = 0
@@ -310,17 +292,17 @@ var (
 )
 
 func (rb *RowBuilder) _xxHashOfKVs() uint64 {
-	if rb.rowKVs.kvCount == 0 {
+	if rb.rowKVs.Count == 0 {
 		return emptyStringHash
 	}
 	rb.hashBuf.Reset()
-	for idx := 0; idx < rb.rowKVs.kvCount; idx++ {
+	for idx := 0; idx < rb.rowKVs.Count; idx++ {
 		if idx >= 1 {
 			_ = rb.hashBuf.WriteByte(',')
 		}
-		_, _ = rb.hashBuf.Write(rb.rowKVs.kvs[idx].key)
+		_, _ = rb.hashBuf.Write(rb.rowKVs.Values[idx].Key)
 		_ = rb.hashBuf.WriteByte('=')
-		_, _ = rb.hashBuf.Write(rb.rowKVs.kvs[idx].value)
+		_, _ = rb.hashBuf.Write(rb.rowKVs.Values[idx].Value)
 	}
 	return xxhash.Sum64(rb.hashBuf.Bytes())
 }
@@ -337,7 +319,7 @@ func (rb *RowBuilder) _xxHashOfName() uint64 {
 
 // dedupTags removes duplicated tags
 func (rb *RowBuilder) dedupTagsThenXXHash() uint64 {
-	if rb.rowKVs.kvCount < 2 {
+	if rb.rowKVs.Count < 2 {
 		return rb._xxHashOfKVs()
 	}
 	if !sort.IsSorted(rb.rowKVs) {
@@ -345,8 +327,8 @@ func (rb *RowBuilder) dedupTagsThenXXHash() uint64 {
 	}
 	// fast path
 	shouldDeDup := false
-	for cursor := 1; cursor < rb.rowKVs.kvCount; cursor++ {
-		if bytes.Equal(rb.rowKVs.kvs[cursor].key, rb.rowKVs.kvs[cursor-1].key) {
+	for cursor := 1; cursor < rb.rowKVs.Count; cursor++ {
+		if bytes.Equal(rb.rowKVs.Values[cursor].Key, rb.rowKVs.Values[cursor-1].Key) {
 			shouldDeDup = true
 			break
 		}
@@ -359,14 +341,14 @@ func (rb *RowBuilder) dedupTagsThenXXHash() uint64 {
 	// high index key has higher priority
 	// use 2-pointer algorithm
 	slow := 0
-	for high := 1; high < rb.rowKVs.kvCount; high++ {
-		if !bytes.Equal(rb.rowKVs.kvs[slow].key, rb.rowKVs.kvs[high].key) {
+	for high := 1; high < rb.rowKVs.Count; high++ {
+		if !bytes.Equal(rb.rowKVs.Values[slow].Key, rb.rowKVs.Values[high].Key) {
 			slow++
 		}
-		rb.rowKVs.kvs[slow].value = append(rb.rowKVs.kvs[slow].value[:0], rb.rowKVs.kvs[high].value...)
-		rb.rowKVs.kvs[slow].key = append(rb.rowKVs.kvs[slow].key[:0], rb.rowKVs.kvs[high].key...)
+		rb.rowKVs.Values[slow].Value = append(rb.rowKVs.Values[slow].Value[:0], rb.rowKVs.Values[high].Value...)
+		rb.rowKVs.Values[slow].Key = append(rb.rowKVs.Values[slow].Key[:0], rb.rowKVs.Values[high].Key...)
 	}
-	rb.rowKVs.kvCount = slow + 1
+	rb.rowKVs.Count = slow + 1
 	return rb._xxHashOfKVs()
 }
 
@@ -378,9 +360,9 @@ func (rb *RowBuilder) Build() ([]byte, error) {
 		return nil, fmt.Errorf("simple field and compound field are both empty")
 	}
 	hash := rb.dedupTagsThenXXHash()
-	for i := 0; i < rb.rowKVs.kvCount; i++ {
-		rb.keys = append(rb.keys, rb.flatBuilder.CreateByteString(rb.rowKVs.kvs[i].key))
-		rb.values = append(rb.values, rb.flatBuilder.CreateByteString(rb.rowKVs.kvs[i].value))
+	for i := 0; i < rb.rowKVs.Count; i++ {
+		rb.keys = append(rb.keys, rb.flatBuilder.CreateByteString(rb.rowKVs.Values[i].Key))
+		rb.values = append(rb.values, rb.flatBuilder.CreateByteString(rb.rowKVs.Values[i].Value))
 	}
 	// building key values vector
 	for i := 0; i < len(rb.keys); i++ {
@@ -418,11 +400,11 @@ func (rb *RowBuilder) Build() ([]byte, error) {
 		rb.exemplars = append(rb.exemplars, flatMetricsV1.ExemplarEnd(rb.flatBuilder))
 	}
 
-	flatMetricsV1.MetricStartKeyValuesVector(rb.flatBuilder, rb.rowKVs.kvCount)
-	for i := rb.rowKVs.kvCount - 1; i >= 0; i-- {
+	flatMetricsV1.MetricStartKeyValuesVector(rb.flatBuilder, rb.rowKVs.Count)
+	for i := rb.rowKVs.Count - 1; i >= 0; i-- {
 		rb.flatBuilder.PrependUOffsetT(rb.kvs[i])
 	}
-	kvs := rb.flatBuilder.EndVector(rb.rowKVs.kvCount)
+	kvs := rb.flatBuilder.EndVector(rb.rowKVs.Count)
 	// serialize fields
 	flatMetricsV1.MetricStartSimpleFieldsVector(rb.flatBuilder, rb.simpleFieldCount)
 	for i := rb.simpleFieldCount - 1; i >= 0; i-- {

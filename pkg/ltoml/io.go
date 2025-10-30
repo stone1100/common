@@ -27,7 +27,7 @@ import (
 
 // EncodeToml encodes data into file using toml format,
 // encode data to tmp file, if success then rename tmp => target file
-func EncodeToml(fileName string, v interface{}) error {
+func EncodeToml(fileName string, v any) error {
 	tmp := fmt.Sprintf("%s.tmp", fileName)
 	f, _ := os.Create(tmp)
 	w := bufio.NewWriter(f)
@@ -66,7 +66,7 @@ func WriteConfig(fileName, content string) error {
 }
 
 // DecodeToml decodes data from file using toml format
-func DecodeToml(fileName string, v interface{}) error {
+func DecodeToml(fileName string, v any) error {
 	if _, err := toml.DecodeFile(fileName, v); err != nil {
 		return err
 	}
